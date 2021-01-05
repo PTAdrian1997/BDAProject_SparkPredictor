@@ -7,6 +7,10 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.sql.hive.HiveContext
 
+/**
+ *
+ * @param sparkContext
+ */
 class HiveReadOperator(sparkContext: SparkContext) extends ReadOperator {
 
   /**

@@ -16,9 +16,17 @@ package object application {
                                )
   lazy val readOperatorConfigElements: ReadOperatorConfig = ReadOperatorConfig()
 
+  case class MarkovianPredictorConfig(configuration: Config){
+    val predictorGranularity: Int = configuration.getInt("predictor_granularity")
+    val dataAgeInfluence: Int = configuration.getInt("data_age_influence")
+  }
+
   case class PredictOperatorConfig(
                                     predictorTypeString: String = predictOperatorConfig
-                                      .getString("predictor_type"))
+                                      .getString("predictor_type"),
+                                    stochasticPredictorConfig: MarkovianPredictorConfig = MarkovianPredictorConfig(
+                                      predictOperatorConfig.getConfig("MarkovianPredictor"))
+                                  )
   lazy val predictOperatorConfigElements: PredictOperatorConfig = PredictOperatorConfig()
 
   case class WriteOperatorConfig(outputPath: String = writeOperatorConfig.getString("output_path"))
