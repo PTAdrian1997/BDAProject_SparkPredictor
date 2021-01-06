@@ -5,19 +5,11 @@ import java.util.Random
 
 import batch.operations.InputRecord
 import com.holdenkarau.spark.testing.DatasetSuiteBase
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.sql.{DataFrame, Encoders, SQLContext}
-import org.scalatest._
+import org.apache.spark.sql.functions.{col, hour, max}
+import org.apache.spark.sql.{DataFrame, Encoders}
 import org.scalatest.funspec.AnyFunSpec
-import org.apache.spark.sql.functions._
 
-import scala.collection.mutable.Stack
-
-class MarkovianPredictorTest extends AnyFunSpec with DatasetSuiteBase {
-
-//  val configuration: SparkConf = new SparkConf().setAppName("OptimalWindowPredictor").setMaster("local")
-//  val sparkContext: SparkContext = new SparkContext(conf)
-//  override lazy val sqlContext: SQLContext = new SQLContext(sparkContext)
+class MeanPredictorTest  extends AnyFunSpec with DatasetSuiteBase{
 
   /**
    * class that will generate a random input DataFrame for testing purposes
@@ -44,8 +36,8 @@ class MarkovianPredictorTest extends AnyFunSpec with DatasetSuiteBase {
 
   }
 
-  describe("MarkovianPredictor.get_best_moments_for_a_day"){
-    it("must extract from a column of type List[(milliseconds_in_day, temperature, sound)] the best time period"){
+  describe("MeamPredictor.predict"){
+    it("must extract the correct mean from the previous days"){
       val startTimestamp: Double = 1606155.072000
       val maxRandInt: Int = 200
       val tempStrength: Double = 3.5
@@ -53,7 +45,6 @@ class MarkovianPredictorTest extends AnyFunSpec with DatasetSuiteBase {
       val numberOfElementsInSeq: Int = 10
       val inputDF: DataFrame = new RandomInputGenerator(startTimestamp, maxRandInt, tempStrength, soundStrength,
         numberOfElementsInSeq).getDataFrame
-
       val timestamps: Array[Timestamp] = inputDF.select(col("timestamp")).as[Timestamp](Encoders.TIMESTAMP)
         .collect().sortBy(timestamp => timestamp.getTime)
       val daysDifference: Long = timestamps.last.toLocalDateTime.getDayOfYear - timestamps.head.toLocalDateTime.getDayOfYear
@@ -61,9 +52,12 @@ class MarkovianPredictorTest extends AnyFunSpec with DatasetSuiteBase {
       println(timestamps.mkString("Array(", ", ", ")"))
       println(daysDifference)
 
-      inputDF.withColumn("hour_column", hour(col(TIMESTAMP_COL)))
-        .agg(max("temperature_value"))
-        .show()
+//      inputDF.withColumn("hour_column", hour(col(TIMESTAMP_COL)))
+//        .agg(max("temperature_value"))
+//        .show()
+      val meanPredictor: MeanPredictor = new MeanPredictor(sqlContext.sparkContext)
+      val newDF: DataFrame = meanPredictor.predict(inputDF)
+      newDF.show()
 
     }
   }
