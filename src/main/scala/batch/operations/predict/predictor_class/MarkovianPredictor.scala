@@ -6,6 +6,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Calendar
 
+import batch.operations.predict.predictor_class.MarkovianPredictorConstFields._
 import application.MarkovianPredictorConfig
 import batch.operations.InputRecord
 import org.apache.spark.SparkContext

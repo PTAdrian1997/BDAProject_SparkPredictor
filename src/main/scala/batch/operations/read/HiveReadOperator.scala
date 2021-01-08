@@ -21,7 +21,8 @@ class HiveReadOperator(sparkContext: SparkContext) extends ReadOperator {
    */
   def readFromHiveTable(tableName: String, databaseName: String): DataFrame = {
     val hiveContext: HiveContext = new HiveContext(sparkContext)
-    hiveContext.table(s"$databaseName.$tableName")
+//    hiveContext.table(s"`$databaseName.$tableName`")
+    new SQLContext(sparkContext).sql("select * from `team5_2020_impala_db.simulated_batch`")
   }
 
   /**
@@ -32,7 +33,6 @@ class HiveReadOperator(sparkContext: SparkContext) extends ReadOperator {
    */
   override def readInputDF(configurationValues: Map[String, String]): DataFrame = {
     val tableName = configurationValues.getOrElse(TABLE_NAME_STRING, "")
-    val url = configurationValues.getOrElse(URL_STRING, "")
     val databaseName = configurationValues.getOrElse(DATABASE_NAME_STRING, "")
     readFromHiveTable(tableName, databaseName)
   }

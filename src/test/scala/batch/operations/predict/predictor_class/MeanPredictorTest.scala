@@ -1,6 +1,7 @@
 package batch.operations.predict.predictor_class
 
 import java.sql.Timestamp
+import java.time.LocalDateTime
 import java.util.Random
 
 import batch.operations.InputRecord
@@ -45,17 +46,12 @@ class MeanPredictorTest  extends AnyFunSpec with DatasetSuiteBase{
       val numberOfElementsInSeq: Int = 10
       val inputDF: DataFrame = new RandomInputGenerator(startTimestamp, maxRandInt, tempStrength, soundStrength,
         numberOfElementsInSeq).getDataFrame
-      val timestamps: Array[Timestamp] = inputDF.select(col("timestamp")).as[Timestamp](Encoders.TIMESTAMP)
-        .collect().sortBy(timestamp => timestamp.getTime)
-      val daysDifference: Long = timestamps.last.toLocalDateTime.getDayOfYear - timestamps.head.toLocalDateTime.getDayOfYear
 
-      println(timestamps.mkString("Array(", ", ", ")"))
-      println(daysDifference)
-
-//      inputDF.withColumn("hour_column", hour(col(TIMESTAMP_COL)))
-//        .agg(max("temperature_value"))
-//        .show()
-      val meanPredictor: MeanPredictor = new MeanPredictor(sqlContext.sparkContext)
+      val meanPredictor: MeanPredictor = new MeanPredictor(sqlContext)
+      val currentDate: LocalDateTime = LocalDateTime.now()
+      println(currentDate)
+      val newCurrentDate: LocalDateTime = currentDate.plusDays(40)
+      println(newCurrentDate)
       val newDF: DataFrame = meanPredictor.predict(inputDF)
       newDF.show()
 
