@@ -8,13 +8,12 @@ import com.holdenkarau.spark.testing.DatasetSuiteBase
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{DataFrame, Encoders, SQLContext}
 import org.scalatest._
-import org.scalatest.funspec.AnyFunSpec
 import org.apache.spark.sql.functions._
 import batch.operations.predict.predictor_class.MarkovianPredictorConstFields._
 
 import scala.collection.mutable.Stack
 
-class MarkovianPredictorTest extends AnyFunSpec with DatasetSuiteBase {
+class MarkovianPredictorTest extends FunSpec with DatasetSuiteBase with Matchers {
 
 //  val configuration: SparkConf = new SparkConf().setAppName("OptimalWindowPredictor").setMaster("local")
 //  val sparkContext: SparkContext = new SparkContext(conf)
@@ -31,8 +30,6 @@ class MarkovianPredictorTest extends AnyFunSpec with DatasetSuiteBase {
   class RandomInputGenerator(startTimestamp: Double, maxRandInt: Int, tempStrength: Double,
                              soundStrength: Double, numberOfElements: Int){
     val random: Random = new Random()
-
-    import sqlContext.implicits._
 
     def computeInputSeq: Seq[InputRecord] = Seq.fill[InputRecord](numberOfElements){
       val newTimestamp: Double = startTimestamp + random.nextInt(maxRandInt)

@@ -25,8 +25,8 @@ libraryDependencies += "com.typesafe" % "config" % "1.4.1"
 libraryDependencies += "org.apache.spark" %% "spark-hive" % "1.6.0"
 
 // https://mvnrepository.com/artifact/org.scalatest/scalatest
-libraryDependencies += "org.scalatest" %% "scalatest" % "3.3.0-SNAP3" % Test
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "it,test"
+
 
 // https://mvnrepository.com/artifact/com.holdenkarau/spark-testing-base
-libraryDependencies += "com.holdenkarau" %% "spark-testing-base" % "1.6.0_0.11.0" % Test
-
+libraryDependencies += "com.holdenkarau" %% "spark-testing-base" % "1.6.0_0.11.0" % "it,test"

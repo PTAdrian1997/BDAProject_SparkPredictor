@@ -5,12 +5,16 @@ import java.time.LocalDateTime
 import java.util.Random
 
 import batch.operations.InputRecord
-import com.holdenkarau.spark.testing.DatasetSuiteBase
-import org.apache.spark.sql.functions.{col, hour, max}
-import org.apache.spark.sql.{DataFrame, Encoders}
-import org.scalatest.funspec.AnyFunSpec
+import com.holdenkarau.spark.testing.{DataFrameSuiteBase, DatasetSuiteBase}
+import org.apache.spark.sql.functions.{col, hour, max, mean}
+import org.apache.spark.sql.types.{StructField, StructType, TimestampType}
+import org.apache.spark.sql.{DataFrame, Encoders, Row}
+import org.scalatest
+import org.scalatest.{FunSpec, Matchers}
 
-class MeanPredictorTest  extends AnyFunSpec with DatasetSuiteBase{
+class MeanPredictorTest  extends FunSpec with DataFrameSuiteBase with Matchers {
+
+  import sqlContext.implicits._
 
   /**
    * class that will generate a random input DataFrame for testing purposes
@@ -23,8 +27,6 @@ class MeanPredictorTest  extends AnyFunSpec with DatasetSuiteBase{
   class RandomInputGenerator(startTimestamp: Double, maxRandInt: Int, tempStrength: Double,
                              soundStrength: Double, numberOfElements: Int){
     val random: Random = new Random()
-
-    import sqlContext.implicits._
 
     def computeInputSeq: Seq[InputRecord] = Seq.fill[InputRecord](numberOfElements){
       val newTimestamp: Double = startTimestamp + random.nextInt(maxRandInt)
@@ -48,14 +50,39 @@ class MeanPredictorTest  extends AnyFunSpec with DatasetSuiteBase{
         numberOfElementsInSeq).getDataFrame
 
       val meanPredictor: MeanPredictor = new MeanPredictor(sqlContext)
-      val currentDate: LocalDateTime = LocalDateTime.now()
-      println(currentDate)
-      val newCurrentDate: LocalDateTime = currentDate.plusDays(40)
-      println(newCurrentDate)
       val newDF: DataFrame = meanPredictor.predict(inputDF)
-      newDF.show()
-
     }
+    it("must return a DataFrame that has the same number of elements as the input" +
+      " DataFrame and with hour=the hour with the smallest noise"){
+      val inputSeq: Seq[InputRecord] = Seq(
+        InputRecord(Timestamp.valueOf("2021-01-07 11:00:01"), 43.25, 21.57),
+        InputRecord(Timestamp.valueOf("2021-01-07 11:00:08"), 35.65, 25.43),
+        InputRecord(Timestamp.valueOf("2021-01-07 12:01:43"), 43.24, 23.54),
+        InputRecord(Timestamp.valueOf("2021-01-08 11:03:03"), 10.94, 43.53),
+        InputRecord(Timestamp.valueOf("2021-01-09 12:23:00"), 11.43, 11.06),
+        InputRecord(Timestamp.valueOf("2021-01-09 12:43:00"), 09.64, 19.23),
+        InputRecord(Timestamp.valueOf("2021-01-10 12:10:00"), 11.94, 20.21)
+      )
+      val inputDF: DataFrame = sqlContext.createDataFrame(inputSeq)
+      val expectedSeq: Seq[Row] = Seq(
+        Row(Timestamp.valueOf("2021-01-11 12:00:00.0")),
+        Row(Timestamp.valueOf("2021-01-12 12:00:00.0")),
+        Row(Timestamp.valueOf("2021-01-13 12:00:00.0"))
+      )
+      val expectedStructType: StructType = StructType(StructField("timestamp", TimestampType, nullable = false) :: Nil)
+      val expectedDF: DataFrame = sqlContext.createDataFrame(sqlContext.sparkContext.parallelize(expectedSeq),
+        expectedStructType)
+      val meanPredictor: MeanPredictor = new MeanPredictor(sqlContext)
+      val outputDF: DataFrame = meanPredictor.predict(inputDF)
+      assertDataFrameEquals(expectedDF, outputDF)
+    }
+
+    it("must return an empty DataFrame if the input DataFrame is empty"){
+      val meanPredictor: MeanPredictor = new MeanPredictor(sqlContext)
+      val outputDF: DataFrame = meanPredictor.predict(sqlContext.emptyDataFrame)
+      assertDataFrameEquals(sqlContext.emptyDataFrame, outputDF)
+    }
+
   }
 
 }

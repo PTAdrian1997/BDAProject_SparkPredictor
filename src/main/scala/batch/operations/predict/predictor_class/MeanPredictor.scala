@@ -1,4 +1,5 @@
 package batch.operations.predict.predictor_class
+
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.util.Calendar
@@ -14,10 +15,10 @@ import org.apache.spark.sql.types.{DataType, DoubleType, IntegerType, StructFiel
 
 class MeanPredictor(sqlContext: SQLContext) extends Predictor with java.io.Serializable {
 
-  val generate_next_series: UserDefinedFunction = udf{
+  val generate_next_series: UserDefinedFunction = udf {
     (bestHour: Int, daysDifference: Int, lastTimestamp: Timestamp) =>
       val lastLocalDateTime: LocalDateTime = lastTimestamp.toLocalDateTime
-      Seq.range(1, daysDifference + 1).map{
+      Seq.range(1, daysDifference + 1).map {
         intVal =>
           Timestamp.valueOf(lastLocalDateTime.getYear + "-" +
             f"${lastLocalDateTime.getMonthValue}%02d" + "-" + f"${lastLocalDateTime.getDayOfMonth + intVal}%02d" +
@@ -33,50 +34,51 @@ class MeanPredictor(sqlContext: SQLContext) extends Predictor with java.io.Seria
    */
   override def predict(inputDF: DataFrame): DataFrame = {
 
-    val days_difference = new DaysDifference
+    inputDF match {
+      case _ if inputDF.count() == 0 => sqlContext.emptyDataFrame
+      case _ =>
+        val days_difference = new DaysDifference
 
-    // first, get the difference between the maximal date and the minimal date:
-//    val timestamps: Array[Timestamp] = inputDF.select(col(TIMESTAMP_COL)).as[Timestamp](Encoders.TIMESTAMP).collect()
-//      .sortBy(timestamp => timestamp.getTime)
-    val daysDifference: DataFrame = inputDF.select(col(TIMESTAMP_COL)).agg(days_difference(col(TIMESTAMP_COL))
-      .as(DAYS_DIFFERENCE_COL))
+        // first, get the difference between the maximal date and the minimal date:
+        //    val timestamps: Array[Timestamp] = inputDF.select(col(TIMESTAMP_COL)).as[Timestamp](Encoders.TIMESTAMP).collect()
+        //      .sortBy(timestamp => timestamp.getTime)
+        val daysDifference: DataFrame = inputDF.select(col(TIMESTAMP_COL)).agg(days_difference(col(TIMESTAMP_COL))
+          .as(DAYS_DIFFERENCE_COL))
 
-//    new SQLContext(sparkContext).udf.register("get_mean_noise_hour", new MinMean)
-    val get_mean_noise_hour = new MinMean
+        val get_mean_noise_hour = new MinMean
 
-    // get the last date:
-    val lastDate: DataFrame = inputDF.agg(max(col(TIMESTAMP_COL)).as(LAST_TIMESTAMP_COL))
+        // get the last date:
+        val lastDate: DataFrame = inputDF.agg(max(col(TIMESTAMP_COL)).as(LAST_TIMESTAMP_COL))
 
-    val noiseMeanPerHour: DataFrame = inputDF
-      .drop(col(TEMPERATURE_COL))
-      .withColumn(HOUR_COL, hour(col(TIMESTAMP_COL)))
-      .drop(col(TIMESTAMP_COL))
-      .groupBy(col(HOUR_COL))
-      .agg(mean(col(SOUND_VOLUME_COL)).as(MEAN_NOISE_COL))
-      .drop(col(SOUND_VOLUME_COL))
+        val noiseMeanPerHour: DataFrame = inputDF
+          .drop(col(TEMPERATURE_COL))
+          .withColumn(HOUR_COL, hour(col(TIMESTAMP_COL)))
+          .drop(col(TIMESTAMP_COL))
+          .groupBy(col(HOUR_COL))
+          .agg(mean(col(SOUND_VOLUME_COL)).as(MEAN_NOISE_COL))
+          .drop(col(SOUND_VOLUME_COL))
 
-    noiseMeanPerHour.show() // for debugging purposes
+        // starting from the last date and covering the same time difference as the batch that was processed,
+        // use the hour found:
+        val bestHour: DataFrame = noiseMeanPerHour.agg(get_mean_noise_hour(col(HOUR_COL), col(MEAN_NOISE_COL))
+          .as(BEST_HOUR_COL))
 
-    // starting from the last date and covering the same time difference as the batch that was processed,
-    // use the hour found:
-    val bestHour: DataFrame = noiseMeanPerHour.agg(get_mean_noise_hour(col(HOUR_COL), col(MEAN_NOISE_COL))
-      .as(BEST_HOUR_COL))
-
-    val newRDD: RDD[Row] = bestHour.join(daysDifference).join(lastDate).flatMap {
-      row =>
-        val bestHourEl: Int = row.getInt(0)
-        val daysDifferenceEl: Int = row.getInt(1)
-        val lastDateEl: Timestamp = row.getTimestamp(2)
-        val lastLocalDateTime: LocalDateTime = lastDateEl.toLocalDateTime
-        Seq.range(1, daysDifferenceEl + 1).map { intNumber =>
-          val newLocalDT: LocalDateTime = lastLocalDateTime.plusDays(intNumber).withHour(bestHourEl)
-          Row(Timestamp.valueOf(newLocalDT.getYear + "-" +
-            f"${newLocalDT.getMonthValue}%02d" + "-" + f"${newLocalDT.getDayOfMonth}%02d" +
-            " " + f"${bestHourEl}%02d" + ":00:00"))
+        val newRDD: RDD[Row] = bestHour.join(daysDifference).join(lastDate).flatMap {
+          row =>
+            val bestHourEl: Int = row.getInt(0)
+            val daysDifferenceEl: Int = row.getInt(1)
+            val lastDateEl: Timestamp = row.getTimestamp(2)
+            val lastLocalDateTime: LocalDateTime = lastDateEl.toLocalDateTime
+            Seq.range(1, daysDifferenceEl + 1).map { intNumber =>
+              val newLocalDT: LocalDateTime = lastLocalDateTime.plusDays(intNumber).withHour(bestHourEl)
+              Row(Timestamp.valueOf(newLocalDT.getYear + "-" +
+                f"${newLocalDT.getMonthValue}%02d" + "-" + f"${newLocalDT.getDayOfMonth}%02d" +
+                " " + f"${bestHourEl}%02d" + ":00:00"))
+            }
         }
+        sqlContext.createDataFrame(newRDD, StructType(StructField(TIMESTAMP_COL, TimestampType,
+          nullable = false) :: Nil))
     }
-    sqlContext.createDataFrame(newRDD, StructType(StructField(TIMESTAMP_COL, TimestampType,
-      nullable = false) :: Nil))
 
   }
 
@@ -84,7 +86,7 @@ class MeanPredictor(sqlContext: SQLContext) extends Predictor with java.io.Seria
     override def inputSchema: StructType = StructType(
       StructField(HOUR_COL, IntegerType, nullable = false) ::
         StructField(MEAN_NOISE_COL, DoubleType, nullable = false)
-      :: Nil)
+        :: Nil)
 
     override def bufferSchema: StructType = StructType(
       StructField(BEST_HOUR_COL, IntegerType, nullable = false) ::
@@ -104,7 +106,7 @@ class MeanPredictor(sqlContext: SQLContext) extends Predictor with java.io.Seria
     override def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
       val currentHour: Int = input.getAs[Int](0)
       val currentNoise: Double = input.getAs[Double](1)
-      if(buffer(0) == -1 || buffer.getAs[Double](1) > currentNoise){
+      if (buffer(0) == -1 || buffer.getAs[Double](1) > currentNoise) {
         buffer(0) = currentHour
         buffer(1) = currentNoise
       }
@@ -142,22 +144,22 @@ class MeanPredictor(sqlContext: SQLContext) extends Predictor with java.io.Seria
     override def deterministic: Boolean = true
 
     override def initialize(buffer: MutableAggregationBuffer): Unit = {
-      buffer(0) = Timestamp.valueOf("1970-01-01 00:00:00")
+      buffer(0) = Timestamp.valueOf("2970-01-01 00:00:00")
       buffer(1) = Timestamp.valueOf("1970-01-01 00:00:00")
     }
 
     override def update(buffer: MutableAggregationBuffer, input: Row): Unit = {
       val currentTimestamp = input.getTimestamp(0)
       val (bufferMinTimestamp, bufferMaxTimestamp) = (buffer.getTimestamp(0), buffer.getTimestamp(1))
-      buffer(0) = if(bufferMinTimestamp.after(currentTimestamp)) currentTimestamp else bufferMinTimestamp
-      buffer(1) = if(bufferMaxTimestamp.before(currentTimestamp)) currentTimestamp else bufferMaxTimestamp
+      buffer(0) = if (bufferMinTimestamp.after(currentTimestamp)) currentTimestamp else bufferMinTimestamp
+      buffer(1) = if (bufferMaxTimestamp.before(currentTimestamp)) currentTimestamp else bufferMaxTimestamp
     }
 
     override def merge(buffer1: MutableAggregationBuffer, buffer2: Row): Unit = {
       val (buffer1MinTimestamp, buffer1MaxTimestamp) = (buffer1.getTimestamp(0), buffer1.getTimestamp(1))
       val (buffer2MinTimestamp, buffer2MaxTimestamp) = (buffer2.getTimestamp(0), buffer2.getTimestamp(1))
-      buffer1(0) = if(buffer1MinTimestamp.after(buffer2MinTimestamp)) buffer2MinTimestamp else buffer1MinTimestamp
-      buffer1(1) = if(buffer1MaxTimestamp.before(buffer2MaxTimestamp)) buffer2MaxTimestamp else buffer1MaxTimestamp
+      buffer1(0) = if (buffer1MinTimestamp.after(buffer2MinTimestamp)) buffer2MinTimestamp else buffer1MinTimestamp
+      buffer1(1) = if (buffer1MaxTimestamp.before(buffer2MaxTimestamp)) buffer2MaxTimestamp else buffer1MaxTimestamp
     }
 
     override def evaluate(buffer: Row): Any = {
