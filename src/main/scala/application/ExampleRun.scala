@@ -10,7 +10,7 @@ import org.apache.spark.sql.types.{DoubleType, StructField, StructType, Timestam
 object ExampleRun {
 
   def runExample: Unit = {
-    val conf: SparkConf = new SparkConf().setAppName("OptimalWindowPredictor")
+    val conf: SparkConf = new SparkConf().setAppName("OptimalWindowPredictor").setMaster("local")
     val sparkContext: SparkContext = new SparkContext(conf)
     val sqlContext: SQLContext = new SQLContext(sparkContext)
 
@@ -30,7 +30,9 @@ object ExampleRun {
 
     val rowsDF: DataFrame = sqlContext.createDataFrame(rowsRDD, schema)
     // write the data:
-    rowsDF.write.parquet("/home/team5_2020/pahp1871/deploy_job/run_example_output")
+//    rowsDF.write.parquet("/home/team5_2020/pahp1871/deploy_job/run_example_output")
+    rowsDF.write.parquet("output")
+    rowsDF.show()
   }
 
 }

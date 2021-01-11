@@ -2,11 +2,12 @@ package application
 
 import java.sql.Timestamp
 
-import batch.operations.read.{HiveReadOperator, ImpalaReadOperator}
+import batch.operations.read.{DATABASE_NAME_STRING, HiveReadOperator, ImpalaReadOperator, TABLE_NAME_STRING, URL_STRING}
 import batch.operations.write.WriteOperator
 import org.apache.spark.sql.SQLContext
 
 import scala.collection.immutable.HashMap
+import scala.util.Random
 
 //import batch.operations.read.ReadOperator
 //import batch.operations.write.WriteOperator
@@ -21,18 +22,12 @@ object MainPredictor extends App {
   val sparkContext: SparkContext = new SparkContext(conf)
   val sqlContext: SQLContext = new SQLContext(sparkContext)
 
-  val tableName: String = "merge"
-  val dbName: String = "dbName"
-
   // read the input data:
   val readVariables: Map[String, String] = HashMap(
-    ("url", readOperatorConfigElements.url),
-    ("inputTable", readOperatorConfigElements.inputTable),
-    ("inputDatabase", readOperatorConfigElements.inputDatabase))
+    (URL_STRING, readOperatorConfigElements.url),
+    (TABLE_NAME_STRING, readOperatorConfigElements.inputTable),
+    (DATABASE_NAME_STRING, readOperatorConfigElements.inputDatabase))
   val inputDF: DataFrame = new HiveReadOperator(sparkContext).readInputDF(readVariables)
-  inputDF.count()
-
-  // write the output data to the table:
-//  WriteOperator.writeOutputDF(inputDF, writeOperatorConfigElements.outputPath)
+  println(inputDF.count())
 
 }
